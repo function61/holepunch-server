@@ -12,7 +12,7 @@ import (
 
 // Go's (at of version 1.11) SSH implements port forwarding for client side only. this
 // implements port forwarding for server side in a pluggable manner (one function call only).
-// 
+//
 // currently only reverse tunnels are supported. PRs are welcome :)
 
 var log = logger.New("sshd-portforward")
@@ -46,21 +46,21 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 		panic("cancel-tcpip-forward not yet implemented")
 	}
 
-	var cfm channelForwardMsg
-	if err := ssh.Unmarshal(req.Payload, &cfm); err != nil {
+	var forwardingDetails channelForwardMsg
+	if err := ssh.Unmarshal(req.Payload, &forwardingDetails); err != nil {
 		log.Error(err.Error())
 		req.Reply(false, nil)
 		return
 	}
 
-	if cfm.Addr != "127.0.0.1" && cfm.Addr != "0.0.0.0" {
+	if forwardingDetails.Addr != "127.0.0.1" && forwardingDetails.Addr != "0.0.0.0" {
 		// we don't support non-local addresses yet (Dial()ing)
 		log.Error(errUnsupportedAddress.Error())
 		req.Reply(false, nil)
 		return
 	}
 
-	listenAddr := fmt.Sprintf("%s:%d", cfm.Addr, cfm.Rport)
+	listenAddr := fmt.Sprintf("%s:%d", forwardingDetails.Addr, forwardingDetails.Rport)
 
 	log.Info(fmt.Sprintf("Adding listener to %s", listenAddr))
 
@@ -82,7 +82,7 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 			log.Debug(fmt.Sprintf("new client: %s", connToForward.RemoteAddr().String()))
 
 			go func() {
-				if err := forwardOneReverseConnection(serverConn, connToForward, cfm); err != nil {
+				if err := forwardOneReverseConnection(serverConn, connToForward, forwardingDetails); err != nil {
 					log.Error(fmt.Sprintf("forwardOneReverseConnection(): %s", err.Error()))
 				}
 			}()
@@ -98,7 +98,7 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 	req.Reply(true, nil)
 }
 
-func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward net.Conn, cfm channelForwardMsg) error {
+func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward net.Conn, forwardingDetails channelForwardMsg) error {
 	remoteAddr := connToForward.RemoteAddr()
 	remoteHost, remotePortStr, err := net.SplitHostPort(remoteAddr.String())
 	if err != nil {
@@ -111,13 +111,15 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 	}
 
 	fordwardedMsg := &forwardedTCPPayload{
-		Addr:       cfm.Addr,
-		Port:       cfm.Rport,
+		Addr:       forwardingDetails.Addr,
+		Port:       forwardingDetails.Rport,
 		OriginAddr: remoteHost,
 		OriginPort: uint32(remotePort),
 	}
 
-	ch, reqs, err := sshServerConn.OpenChannel("forwarded-tcpip", ssh.Marshal(fordwardedMsg))
+	// TCP stream is modeled as a SSH channel. it conveniently implements
+	// io.ReadWriteCloser so we can just pipe the TCP connection and SSH channel in both directions
+	tcpStreamCh, reqs, err := sshServerConn.OpenChannel("forwarded-tcpip", ssh.Marshal(fordwardedMsg))
 	if err != nil {
 		return err
 	}
@@ -125,5 +127,5 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 	// we're not expecting any requests for this channel
 	go ssh.DiscardRequests(reqs)
 
-	return bidipipe.Pipe(ch, "SSH tunnel", connToForward, "Local connection")
+	return bidipipe.Pipe(tcpStreamCh, "SSH tunnel", connToForward, "Local connection")
 }

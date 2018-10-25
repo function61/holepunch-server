@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+// Go's (at of version 1.11) SSH implements port forwarding for client side only. this
+// implements port forwarding for server side in a pluggable manner (one function call only).
+// 
+// currently only reverse tunnels are supported. PRs are welcome :)
+
 var log = logger.New("sshd-portforward")
 
 var (

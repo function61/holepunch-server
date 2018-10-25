@@ -18,6 +18,8 @@ And you can use any standard loadbalancer in front of this, if you have edge rou
 
 Essentially this program uses virtual hosting to decide which TCP port to forward traffic to.
 
+![Architecture](docs/architecture.png)
+
 
 Usage
 -----

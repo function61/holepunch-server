@@ -1,0 +1,18 @@
+{
+	"for_description_of_this_file_see": "https://github.com/function61/turbobob",
+	"version_major": 1,
+	"project_name": "holepunch-server",
+	"builders": [
+		{
+			"name": "default",
+			"dockerfile_path": "build-default.Dockerfile",
+			"mount_destination": "/go/src/github.com/function61/holepunch-server",
+			"dev_command": [
+				"bash"
+			],
+			"dev_ports": [],
+			"pass_envs": [],
+			"contextless_build": true
+		}
+	]
+}

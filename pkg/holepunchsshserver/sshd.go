@@ -48,6 +48,10 @@ func DefaultConfig(hostPrivateKeyBytes []byte, clientPubKey string) (*ssh.Server
 
 func keyAuthorizer(expectedClientKeyAuthorizedFormat string) func(ssh.ConnMetadata, ssh.PublicKey) (*ssh.Permissions, error) {
 	return func(metadata ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+		if metadata.User() != "hp" {
+			return nil, errors.New("unknown username")
+		}
+
 		expectedClientKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(expectedClientKeyAuthorizedFormat))
 		if err != nil {
 			return nil, err

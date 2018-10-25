@@ -8,7 +8,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"net"
 	"strconv"
-	"time"
 )
 
 // Go's (at of version 1.11) SSH implements port forwarding for client side only. this
@@ -77,8 +76,7 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 			connToForward, err := listener.Accept()
 			if err != nil {
 				log.Error(fmt.Sprintf("Accept() failed: %s", err.Error()))
-				time.Sleep(500 * time.Millisecond) // prevent hot loop
-				continue
+				break
 			}
 
 			log.Debug(fmt.Sprintf("new client: %s", connToForward.RemoteAddr().String()))

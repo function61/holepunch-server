@@ -21,10 +21,10 @@ Essentially this program uses virtual hosting to decide which TCP port to forwar
 ![Architecture](docs/architecture.png)
 
 
-Usage
------
+Usage, server
+-------------
 
-Download suitable binary for your architecture from the download link.
+Download suitable server binary for your architecture from the download link.
 
 Generate server host key, then output it as base64:
 
@@ -54,3 +54,15 @@ using only Websocket, you might want to disable the TCP port for reduced attack 
 
 This is also available as a Docker image, which by default only enables SSH Websocket and
 HTTP reverse proxy. You need to configure the ENV vars via your favourite deployment tool.
+
+
+Usage, client
+-------------
+
+This server was designed in such a way that, if you want, you can use the native SSH client
+to reverse forward the ports-to-be-exposed.
+
+But if you want truly HTTP-only traffic (so you don't have to expose extra ports in your
+cluster), to have the WebSockets support you must use
+[function61/holepunch-client](https://github.com/function61/holepunch-client) in its
+WebSocket mode.

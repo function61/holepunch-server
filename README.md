@@ -5,7 +5,7 @@
 holepunch-server
 ================
 
-Don't you just hate when you want to connect to an IoT device behind a mobile connection
+Don't you just hate when you want to connect an IoT device behind a mobile connection
 to the internet, and you notice you are behind a
 [carrier-grade NAT](https://en.wikipedia.org/wiki/Carrier-grade_NAT), and the ISP tries to
 persuade you to upgrade to a more expensive plan just to have a public IP?
@@ -36,10 +36,10 @@ This will be your ENV variable `SSH_HOSTKEY`
 
 The other ENV variable will be `CLIENT_PUBKEY`. This won't need to be base64 encoded.
 
-The content of that variable you can find from file `id_ecdsa.pub` from
-[here](https://github.com/function61/holepunch-client#usage).
+The content of that variable you can find from file `id_ecdsa.pub` for the client
+([example](https://github.com/function61/holepunch-client#usage)).
 
-Now set up environment and start `holepunch-server`:
+Now set up ENV vars and start `holepunch-server`:
 
 ```
 export SSH_HOSTKEY="..."
@@ -48,7 +48,7 @@ $ ./holepunch-server server --sshd-websocket --http-reverse-proxy --sshd-tcp 0.0
 ```
 
 The above command line is if you want all the bells and whistles. If your clients will be
-using only Websocket, you might want to disable the TCP port.
+using only Websocket, you might want to disable the TCP port for reduced attack surface.
 
 This is also available as a Docker image, which by default only enables SSH Websocket and
-HTTP reverse proxy.
+HTTP reverse proxy. You need to configure the ENV vars via your favourite deployment tool.

@@ -36,11 +36,6 @@ func (a *Adapter) Read(b []byte) (int, error) {
 		}
 
 		if messageType != websocket.BinaryMessage {
-			// the other side will not send anymore
-			if messageType == websocket.CloseMessage {
-				return 0, io.EOF
-			}
-
 			return 0, errors.New("unexpected websocket message type")
 		}
 

@@ -50,7 +50,7 @@ $ ./holepunch-server server --sshd-websocket --http-reverse-proxy --sshd-tcp 0.0
 ```
 
 The above command line is if you want all the bells and whistles. If your clients will be
-using only Websocket, you might want to disable the TCP port for reduced attack surface.
+using only Websocket, you might want to disable the SSHd TCP port for reduced attack surface.
 
 This is also available as a Docker image, which by default only enables SSH Websocket and
 HTTP reverse proxy. You need to configure the ENV vars via your favourite deployment tool.

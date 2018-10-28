@@ -5,14 +5,17 @@ import (
 	"github.com/gorilla/websocket"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
-// an adapter for piping a net.Conn over a Websocket connection
+// an adapter for representing WebSocket connection as a net.Conn
+// some caveats apply: https://github.com/gorilla/websocket/issues/441
 
 type Adapter struct {
-	conn   *websocket.Conn
-	reader io.Reader
+	conn      *websocket.Conn
+	readMutex sync.Mutex
+	reader    io.Reader
 }
 
 func New(conn *websocket.Conn) *Adapter {
@@ -22,6 +25,10 @@ func New(conn *websocket.Conn) *Adapter {
 }
 
 func (a *Adapter) Read(b []byte) (int, error) {
+	// Read() can be called concurrently, and we mutate some internal state here
+	a.readMutex.Lock()
+	defer a.readMutex.Unlock()
+
 	if a.reader == nil {
 		messageType, reader, err := a.conn.NextReader()
 		if err != nil {

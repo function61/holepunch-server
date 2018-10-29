@@ -17,6 +17,11 @@ import (
 
 var log = logger.New("sshd-portforward")
 
+// this needs to be global (because TCP ports are global)
+var fwdList = &forwardList{
+	reverseCancellations: map[string]chan bool{},
+}
+
 var (
 	errUnsupportedAddress = errors.New("unsupported address")
 )
@@ -28,24 +33,21 @@ func ProcessPortForwardRequests(requests <-chan *ssh.Request, serverConn *ssh.Se
 
 	go func() {
 		for req := range requests {
-			if req.Type != "tcpip-forward" && req.Type != "cancel-tcpip-forward" {
+			switch req.Type {
+			case "tcpip-forward":
+				processTcpipForwardReq(req, serverConn, fwdList)
+			case "cancel-tcpip-forward":
+				processTcpipCancelForwardReq(req, fwdList)
+			default:
 				nonForwardRequests <- req
-				continue
 			}
-
-			// does not block for a long time
-			processOnePortForwardRequest(req, serverConn)
 		}
 	}()
 
 	return nonForwardRequests
 }
 
-func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) {
-	if req.Type != "tcpip-forward" {
-		panic("cancel-tcpip-forward not yet implemented")
-	}
-
+func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdList *forwardList) {
 	var forwardingDetails channelForwardMsg
 	if err := ssh.Unmarshal(req.Payload, &forwardingDetails); err != nil {
 		log.Error(err.Error())
@@ -53,19 +55,85 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 		return
 	}
 
-	forwardTunnel := isForwardTunnel(forwardingDetails)
+	// TODO: use IP.IsLoopback() || IP.IsUnspecified()
+	isForwardTunnel := forwardingDetails.Addr != "127.0.0.1" && forwardingDetails.Addr != "0.0.0.0" && forwardingDetails.Addr != "localhost"
 
-	if forwardTunnel {
-		// we don't support non-local addresses yet (Dial()ing)
-		log.Error(errUnsupportedAddress.Error())
+	if isForwardTunnel {
+		/* from RFC:
+		"When a connection comes to a locally forwarded TCP/IP port, the
+		following packet is sent to the other side.  Note that these messages
+		MAY also be sent for ports for which no forwarding has been
+		explicitly requested." */
+
+		// we haven't implemented this part of the spec yet. PuTTY does not do this.
+		log.Debug("client requesting pre-emptive forward even though it's not required")
+		req.Reply(true, nil)
+		return
+	}
+
+	cancelCh := fwdList.add(forwardingDetails)
+	if cancelCh == nil {
+		log.Error("TCP/IP reverse forward already reserved")
 		req.Reply(false, nil)
 		return
+	}
+
+	go processOnePortReverseRequest(
+		forwardingDetails,
+		req,
+		serverConn,
+		fwdList,
+		*cancelCh)
+}
+
+func processTcpipCancelForwardReq(req *ssh.Request, fwdList *forwardList) {
+	var cancelForwardDetails channelForwardMsg
+	if err := ssh.Unmarshal(req.Payload, &cancelForwardDetails); err != nil {
+		log.Error(err.Error())
+		req.Reply(false, nil)
+		return
+	}
+
+	if fwdList.cancel(cancelForwardDetails) {
+		req.Reply(true, nil)
 	} else {
-		go processOnePortReverseRequest(forwardingDetails, req, serverConn)
+		log.Error("cancel request for non-existent port")
+		req.Reply(false, nil)
 	}
 }
 
-func processOnePortReverseRequest(forwardingDetails channelForwardMsg, req *ssh.Request, serverConn *ssh.ServerConn) {
+// does same for ssh.NewChannel as above ProcessPortForwardRequests() does for ssh.Request
+func ProcessPortForwardNewChannelRequests(newChannelRequests <-chan ssh.NewChannel) <-chan ssh.NewChannel {
+	nonForwardNewChannels := make(chan ssh.NewChannel, 1)
+
+	go func() {
+		for newChannel := range newChannelRequests {
+			switch newChannel.ChannelType() {
+			case "direct-tcpip":
+				var forwardingDetails channelOpenDirectMsg
+				if err := ssh.Unmarshal(newChannel.ExtraData(), &forwardingDetails); err != nil {
+					log.Error(err.Error())
+					newChannel.Reject(ssh.UnknownChannelType, "payload unmarshal failed")
+					continue
+				}
+
+				go processOnePortForwardRequest(forwardingDetails, newChannel)
+			default:
+				nonForwardNewChannels <- newChannel
+			}
+		}
+	}()
+
+	return nonForwardNewChannels
+}
+
+func processOnePortReverseRequest(
+	forwardingDetails channelForwardMsg,
+	req *ssh.Request,
+	serverConn *ssh.ServerConn,
+	fwdList *forwardList,
+	cancel <-chan bool,
+) {
 	listenAddr := fmt.Sprintf("%s:%d", forwardingDetails.Addr, forwardingDetails.Rport)
 
 	log.Info(fmt.Sprintf("Adding reverse listener to %s", listenAddr))
@@ -76,6 +144,7 @@ func processOnePortReverseRequest(forwardingDetails channelForwardMsg, req *ssh.
 		req.Reply(false, nil)
 		return
 	}
+	defer log.Info(fmt.Sprintf("Removed reverse listener %s", listenAddr))
 	defer listener.Close()
 
 	go func() {
@@ -83,17 +152,25 @@ func processOnePortReverseRequest(forwardingDetails channelForwardMsg, req *ssh.
 			connToForward, err := listener.Accept()
 			if err != nil {
 				log.Error(fmt.Sprintf("Accept() failed: %s", err.Error()))
-				break
+				fwdList.cancel(forwardingDetails)
+				return
 			}
 
 			log.Debug(fmt.Sprintf("new client: %s", connToForward.RemoteAddr().String()))
 
 			go func() {
 				if err := forwardOneReverseConnection(serverConn, connToForward, forwardingDetails); err != nil {
-					log.Error(fmt.Sprintf("forwardOneReverseConnection(): %s", err.Error()))
+					log.Error(fmt.Sprintf("processOnePortReverseRequest(): %s", err.Error()))
 				}
 			}()
 		}
+	}()
+
+	go func() {
+		// returns when SSH connection exists
+		serverConn.Wait()
+
+		fwdList.cancel(forwardingDetails)
 	}()
 
 	/*	FIXME: we probably should implement to-spec where responding with port if port in req was 0
@@ -104,9 +181,12 @@ func processOnePortReverseRequest(forwardingDetails channelForwardMsg, req *ssh.
 	*/
 	req.Reply(true, nil)
 
-	serverConn.Wait()
+	// wait until reverse forward is: (all signalled via fwdList.cancel())
+	// - cancelled explicitly by the client or
+	// - the connection breaks
+	// - listener.Accept() fails
 
-	log.Info("SSH client went away - closing listener")
+	<-cancel
 }
 
 func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward net.Conn, forwardingDetails channelForwardMsg) error {
@@ -141,7 +221,29 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 	return bidipipe.Pipe(tcpStreamCh, "SSH tunnel", connToForward, "Local connection")
 }
 
-func isForwardTunnel(forwardingDetails channelForwardMsg) bool {
-	// TODO: use IP.IsLoopback() || IP.IsUnspecified()
-	return forwardingDetails.Addr != "127.0.0.1" && forwardingDetails.Addr != "0.0.0.0"
+func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newChannel ssh.NewChannel) {
+	remoteAddr := fmt.Sprintf("%s:%d", forwardingDetails.Raddr, forwardingDetails.Rport)
+
+	log.Info(fmt.Sprintf("forwarding %s", remoteAddr))
+	defer log.Info("closing")
+
+	rconn, err := net.Dial("tcp", remoteAddr)
+	if err != nil {
+		log.Error(err.Error())
+		newChannel.Reject(ssh.ConnectionFailed, err.Error())
+		return
+	}
+	defer rconn.Close()
+
+	tcpStreamCh, reqs, err := newChannel.Accept()
+	if err != nil {
+		log.Error("channel Accept() failed")
+		return
+	}
+
+	go ssh.DiscardRequests(reqs)
+
+	if err := bidipipe.Pipe(tcpStreamCh, "SSH tunnel", rconn, "Local connection"); err != nil {
+		log.Error(err.Error())
+	}
 }

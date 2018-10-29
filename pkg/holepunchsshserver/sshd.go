@@ -26,9 +26,13 @@ func ServeConn(conn net.Conn, config *ssh.ServerConfig) {
 		sshServerConn.ClientVersion()))
 
 	// handle portforwarding out-of-band requests, but discard all other
+	// these are reverse forwards
 	nonForwardReqs := sshserverportforward.ProcessPortForwardRequests(requests, sshServerConn)
 	go ssh.DiscardRequests(nonForwardReqs)
-	go sshserverportforward.RejectChannelRequests(newChannelRequests)
+
+	// these are normal forwards ("forward forwards")
+	nonForwardChans := sshserverportforward.ProcessPortForwardNewChannelRequests(newChannelRequests)
+	go sshserverportforward.RejectChannelRequests(nonForwardChans)
 }
 
 func DefaultConfig(hostPrivateKeyBytes []byte, clientPubKey string) (*ssh.ServerConfig, error) {

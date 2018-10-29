@@ -16,3 +16,11 @@ type forwardedTCPPayload struct {
 	OriginAddr string
 	OriginPort uint32
 }
+
+// RFC 4254 7.2
+type channelOpenDirectMsg struct {
+	Raddr string
+	Rport uint32
+	Laddr string
+	Lport uint32
+}

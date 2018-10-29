@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-// Go's (at of version 1.11) SSH implements port forwarding for client side only. this
+// Go's (as of version 1.11) SSH implements port forwarding for client side only. this
 // implements port forwarding for server side in a pluggable manner (one function call only).
 //
 // currently only reverse tunnels are supported. PRs are welcome :)
@@ -53,16 +53,22 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 		return
 	}
 
-	if forwardingDetails.Addr != "127.0.0.1" && forwardingDetails.Addr != "0.0.0.0" {
+	forwardTunnel := isForwardTunnel(forwardingDetails)
+
+	if forwardTunnel {
 		// we don't support non-local addresses yet (Dial()ing)
 		log.Error(errUnsupportedAddress.Error())
 		req.Reply(false, nil)
 		return
+	} else {
+		go processOnePortReverseRequest(forwardingDetails, req, serverConn)
 	}
+}
 
+func processOnePortReverseRequest(forwardingDetails channelForwardMsg, req *ssh.Request, serverConn *ssh.ServerConn) {
 	listenAddr := fmt.Sprintf("%s:%d", forwardingDetails.Addr, forwardingDetails.Rport)
 
-	log.Info(fmt.Sprintf("Adding listener to %s", listenAddr))
+	log.Info(fmt.Sprintf("Adding reverse listener to %s", listenAddr))
 
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -70,6 +76,7 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 		req.Reply(false, nil)
 		return
 	}
+	defer listener.Close()
 
 	go func() {
 		for {
@@ -96,6 +103,10 @@ func processOnePortForwardRequest(req *ssh.Request, serverConn *ssh.ServerConn) 
 		}
 	*/
 	req.Reply(true, nil)
+
+	serverConn.Wait()
+
+	log.Info("SSH client went away - closing listener")
 }
 
 func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward net.Conn, forwardingDetails channelForwardMsg) error {
@@ -128,4 +139,9 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 	go ssh.DiscardRequests(reqs)
 
 	return bidipipe.Pipe(tcpStreamCh, "SSH tunnel", connToForward, "Local connection")
+}
+
+func isForwardTunnel(forwardingDetails channelForwardMsg) bool {
+	// TODO: use IP.IsLoopback() || IP.IsUnspecified()
+	return forwardingDetails.Addr != "127.0.0.1" && forwardingDetails.Addr != "0.0.0.0"
 }

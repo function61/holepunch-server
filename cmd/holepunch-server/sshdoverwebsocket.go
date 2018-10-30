@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"github.com/function61/gokit/logger"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
+	"github.com/function61/holepunch-server/pkg/tcpkeepalive"
 	"github.com/function61/holepunch-server/pkg/wsconnadapter"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -28,6 +30,10 @@ func RegisterSshdOverWebsocket(mux *http.ServeMux, conf *ssh.ServerConfig) {
 			if err != nil {
 				log.Error(fmt.Sprintf("failure upgrading: %s", err.Error()))
 				return
+			}
+
+			if err := tcpkeepalive.Enable(wsConn.UnderlyingConn().(*net.TCPConn), tcpkeepalive.DefaultDuration); err != nil {
+				log.Error(fmt.Sprintf("tcpkeepalive: %s", err.Error()))
 			}
 
 			log.Info("Handing WS conn to SSH holepunchsshserver")

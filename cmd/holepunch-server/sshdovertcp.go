@@ -5,6 +5,7 @@ import (
 	"github.com/function61/gokit/logger"
 	"github.com/function61/gokit/stopper"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
+	"github.com/function61/holepunch-server/pkg/tcpkeepalive"
 	"golang.org/x/crypto/ssh"
 	"net"
 )
@@ -32,6 +33,10 @@ func serveSshdOnTCP(addr string, conf *ssh.ServerConfig, stop *stopper.Stopper) 
 		if err != nil {
 			log.Error(fmt.Sprintf("Accept() failed: %s", err))
 			break
+		}
+
+		if err := tcpkeepalive.Enable(tcpConn.(*net.TCPConn), tcpkeepalive.DefaultDuration); err != nil {
+			log.Error(fmt.Sprintf("tcpkeepalive: %s", err.Error()))
 		}
 
 		go holepunchsshserver.ServeConn(tcpConn, conf)

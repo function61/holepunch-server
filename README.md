@@ -24,7 +24,8 @@ Essentially this program uses virtual hosting to decide which TCP port to forwar
 Usage, server
 -------------
 
-Download suitable server binary for your architecture from the download link.
+Download suitable server binary for your architecture
+(Linux/amd64+arm, Windows/amd64 supported) from the download link.
 
 Generate server host key, then output it as base64:
 
@@ -51,6 +52,10 @@ $ ./holepunch-server server --sshd-websocket --http-reverse-proxy --sshd-tcp 0.0
 
 The above command line is if you want all the bells and whistles. If your clients will be
 using only Websocket, you might want to disable the SSHd TCP port for reduced attack surface.
+
+
+Usage, server (Docker)
+----------------------
 
 This is also available as a Docker image, which by default only enables SSH Websocket and
 HTTP reverse proxy. You need to configure the ENV vars via your favourite deployment tool.

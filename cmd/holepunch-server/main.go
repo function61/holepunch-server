@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/function61/gokit/dynversion"
 	"github.com/function61/gokit/envvar"
 	"github.com/function61/gokit/logex"
 	"github.com/function61/gokit/ossignal"
@@ -14,8 +15,6 @@ import (
 	"net/http"
 	"os"
 )
-
-var version = "dev" // replaced dynamically at build time
 
 var (
 	rootLogger      = logex.StandardLogger()
@@ -40,7 +39,7 @@ func serverEntry() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			defer serverLog.Info.Println("Stopped")
 
-			serverLog.Info.Printf("holepunch-server %s starting", version)
+			serverLog.Info.Printf("holepunch-server %s starting", dynversion.Version)
 
 			workers := stopper.NewManager()
 
@@ -78,7 +77,7 @@ func main() {
 	app := &cobra.Command{
 		Use:     os.Args[0],
 		Short:   "holepunch-server",
-		Version: version,
+		Version: dynversion.Version,
 	}
 
 	app.AddCommand(serverEntry())

@@ -3,11 +3,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2bfd31c37272727a432fb5678d1b20158da540c154ce6e8700256338bb113f15"
+  digest = "1:8e2f03c7130ea2bc82c18673b3aa7fde73e8cc2909bff69f239c75a9c7aa0497"
   name = "github.com/function61/gokit"
   packages = [
     "assert",
     "bidipipe",
+    "dynversion",
     "envvar",
     "logex",
     "ossignal",
@@ -71,6 +72,7 @@
   input-imports = [
     "github.com/function61/gokit/assert",
     "github.com/function61/gokit/bidipipe",
+    "github.com/function61/gokit/dynversion",
     "github.com/function61/gokit/envvar",
     "github.com/function61/gokit/logex",
     "github.com/function61/gokit/ossignal",

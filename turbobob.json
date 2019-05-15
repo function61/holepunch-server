@@ -36,5 +36,10 @@
 			"dockerfile_path": "Dockerfile",
 			"auth_type": "creds_from_env"
 		}
-	]
+	],
+	"os_arches": {
+		"linux-amd64": true,
+		"linux-arm": true,
+		"windows-amd64": true
+	}
 }

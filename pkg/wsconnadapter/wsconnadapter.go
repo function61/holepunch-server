@@ -13,9 +13,10 @@ import (
 // some caveats apply: https://github.com/gorilla/websocket/issues/441
 
 type Adapter struct {
-	conn      *websocket.Conn
-	readMutex sync.Mutex
-	reader    io.Reader
+	conn       *websocket.Conn
+	readMutex  sync.Mutex
+	writeMutex sync.Mutex
+	reader     io.Reader
 }
 
 func New(conn *websocket.Conn) *Adapter {
@@ -58,6 +59,9 @@ func (a *Adapter) Read(b []byte) (int, error) {
 }
 
 func (a *Adapter) Write(b []byte) (int, error) {
+	a.writeMutex.Lock()
+	defer a.writeMutex.Unlock()
+
 	nextWriter, err := a.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return 0, err

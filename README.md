@@ -1,5 +1,5 @@
 [![Build Status](https://img.shields.io/travis/function61/holepunch-server.svg?style=for-the-badge)](https://travis-ci.org/function61/holepunch-server)
-[![Download](https://img.shields.io/bintray/v/function61/holepunch-server/main.svg?style=for-the-badge&label=Download)](https://bintray.com/function61/holepunch-server/main/_latestVersion#files)
+[![Download](https://img.shields.io/bintray/v/function61/dl/holepunch-server.svg?style=for-the-badge&label=Download)](https://bintray.com/function61/dl/holepunch-server/_latestVersion#files)
 [![Download](https://img.shields.io/docker/pulls/fn61/holepunch-server.svg?style=for-the-badge)](https://hub.docker.com/r/fn61/holepunch-server/)
 
 holepunch-server

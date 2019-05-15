@@ -5,14 +5,29 @@
 	"builders": [
 		{
 			"name": "default",
-			"dockerfile_path": "build-default.Dockerfile",
+			"uses": "docker://fn61/buildkit-golang:20190514_1436_703044aa",
 			"mount_destination": "/go/src/github.com/function61/holepunch-server",
-			"dev_command": [
-				"bash"
-			],
-			"dev_ports": [],
-			"pass_envs": ["BINTRAY_CREDS"],
-			"contextless_build": true
+			"workdir": "/go/src/github.com/function61/holepunch-server",
+			"commands": {
+				"build": ["bin/build.sh"],
+				"dev": ["bash"]
+			},
+			"dev_ports": []
+		},
+		{
+			"name": "publisher",
+			"uses": "docker://fn61/buildkit-publisher:20190206_1058_d35b3939",
+			"mount_destination": "/workspace",
+			"commands": {
+				"publish": ["publish.sh", "rel/*"],
+				"dev": ["bash"]
+			},
+			"env": {
+				"BINTRAY_PROJECT": "function61/dl/holepunch-server"
+			},
+			"pass_envs": [
+				"BINTRAY_CREDS"
+			]
 		}
 	],
 	"docker_images": [

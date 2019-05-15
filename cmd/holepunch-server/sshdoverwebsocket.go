@@ -36,11 +36,11 @@ func RegisterSshdOverWebsocket(mux *http.ServeMux, conf *ssh.ServerConfig) {
 				log.Error(fmt.Sprintf("tcpkeepalive: %s", err.Error()))
 			}
 
-			log.Info("Handing WS conn to SSH holepunchsshserver")
+			log.Info("handoff to holepunchsshserver")
 
 			holepunchsshserver.ServeConn(wsconnadapter.New(wsConn), conf)
 		} else {
-			log.Error("Someone called SSH endpoint without Websocket semantics")
+			log.Error("SSH endpoint called without Websocket semantics")
 			http.NotFound(w, r)
 		}
 	})

@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/function61/gokit/envvar"
-	"github.com/function61/gokit/logger"
+	"github.com/function61/gokit/logex"
 	"github.com/function61/gokit/ossignal"
 	"github.com/function61/gokit/stopper"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"github.com/function61/holepunch-server/pkg/reverseproxy"
+	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	"net/http"
@@ -16,8 +17,17 @@ import (
 
 var version = "dev" // replaced dynamically at build time
 
+var (
+	rootLogger      = logex.StandardLogger()
+	serverLog       = logex.Levels(logex.Prefix("server", rootLogger))
+	sshdOverTcpLog  = logex.Levels(logex.Prefix("sshd-over-tcp", rootLogger))
+	sshdOverWsLog   = logex.Levels(logex.Prefix("sshd-over-websocket", rootLogger))
+	sshdServerLog   = logex.Prefix("holepunchsshserver", rootLogger)
+	reverseProxyLog = logex.Prefix("reverseproxy", rootLogger)
+)
+
 func serverEntry() *cobra.Command {
-	log := logger.New("holepunch-server")
+	sshserverportforward.SetLogger(logex.Prefix("sshd-portforward", rootLogger))
 
 	sshdOverWebsocket := false
 	sshdOverTcp := ""
@@ -28,9 +38,9 @@ func serverEntry() *cobra.Command {
 		Short: "Start server",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			defer log.Info("Stopped")
+			defer serverLog.Info.Println("Stopped")
 
-			log.Info(fmt.Sprintf("holepunch-server %s starting", version))
+			serverLog.Info.Printf("holepunch-server %s starting", version)
 
 			workers := stopper.NewManager()
 
@@ -43,7 +53,7 @@ func serverEntry() *cobra.Command {
 			}
 
 			if reverseProxy {
-				reverseproxy.Register(http.DefaultServeMux)
+				reverseproxy.Register(http.DefaultServeMux, reverseProxyLog)
 			}
 
 			// only need HTTP if these services are enabled
@@ -51,7 +61,7 @@ func serverEntry() *cobra.Command {
 				go serveHttp(workers.Stopper())
 			}
 
-			log.Info(fmt.Sprintf("Got %s; stopping", ossignal.WaitForInterruptOrTerminate()))
+			serverLog.Info.Printf("Got %s; stopping", <-ossignal.InterruptOrTerminate())
 
 			workers.StopAllWorkersAndWait()
 		},

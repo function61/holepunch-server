@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/function61/gokit/bidipipe"
-	"github.com/function61/gokit/logger"
+	"github.com/function61/gokit/logex"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"net"
 	"strconv"
 )
@@ -15,7 +16,7 @@ import (
 //
 // currently only reverse tunnels are supported. PRs are welcome :)
 
-var log = logger.New("sshd-portforward")
+var logl = logex.Levels(logex.Discard)
 
 // this needs to be global (because TCP ports are global)
 var fwdList = &forwardList{
@@ -50,7 +51,7 @@ func ProcessPortForwardRequests(requests <-chan *ssh.Request, serverConn *ssh.Se
 func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdList *forwardList) {
 	var forwardingDetails channelForwardMsg
 	if err := ssh.Unmarshal(req.Payload, &forwardingDetails); err != nil {
-		log.Error(err.Error())
+		logl.Error.Println(err.Error())
 		req.Reply(false, nil)
 		return
 	}
@@ -66,14 +67,14 @@ func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdLis
 		explicitly requested." */
 
 		// we haven't implemented this part of the spec yet. PuTTY does not do this.
-		log.Debug("client requesting pre-emptive forward even though it's not required")
+		logl.Debug.Println("client requesting pre-emptive forward even though it's not required")
 		req.Reply(true, nil)
 		return
 	}
 
 	cancelCh := fwdList.add(forwardingDetails)
 	if cancelCh == nil {
-		log.Error("TCP/IP reverse forward already reserved")
+		logl.Error.Println("TCP/IP reverse forward already reserved")
 		req.Reply(false, nil)
 		return
 	}
@@ -89,7 +90,7 @@ func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdLis
 func processTcpipCancelForwardReq(req *ssh.Request, fwdList *forwardList) {
 	var cancelForwardDetails channelForwardMsg
 	if err := ssh.Unmarshal(req.Payload, &cancelForwardDetails); err != nil {
-		log.Error(err.Error())
+		logl.Error.Println(err.Error())
 		req.Reply(false, nil)
 		return
 	}
@@ -97,7 +98,7 @@ func processTcpipCancelForwardReq(req *ssh.Request, fwdList *forwardList) {
 	if fwdList.cancel(cancelForwardDetails) {
 		req.Reply(true, nil)
 	} else {
-		log.Error("cancel request for non-existent port")
+		logl.Error.Println("cancel request for non-existent port")
 		req.Reply(false, nil)
 	}
 }
@@ -112,7 +113,7 @@ func ProcessPortForwardNewChannelRequests(newChannelRequests <-chan ssh.NewChann
 			case "direct-tcpip":
 				var forwardingDetails channelOpenDirectMsg
 				if err := ssh.Unmarshal(newChannel.ExtraData(), &forwardingDetails); err != nil {
-					log.Error(err.Error())
+					logl.Error.Println(err.Error())
 					newChannel.Reject(ssh.UnknownChannelType, "payload unmarshal failed")
 					continue
 				}
@@ -136,31 +137,31 @@ func processOnePortReverseRequest(
 ) {
 	listenAddr := fmt.Sprintf("%s:%d", forwardingDetails.Addr, forwardingDetails.Rport)
 
-	log.Info(fmt.Sprintf("Adding reverse listener to %s", listenAddr))
+	logl.Info.Printf("Adding reverse listener to %s", listenAddr)
 
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		log.Error(err.Error())
+		logl.Error.Println(err.Error())
 		req.Reply(false, nil)
 		return
 	}
-	defer log.Info(fmt.Sprintf("Removed reverse listener %s", listenAddr))
+	defer logl.Info.Printf("Removed reverse listener %s", listenAddr)
 	defer listener.Close()
 
 	go func() {
 		for {
 			connToForward, err := listener.Accept()
 			if err != nil {
-				log.Error(fmt.Sprintf("Accept() failed: %s", err.Error()))
+				logl.Error.Printf("Accept() failed: %s", err.Error())
 				fwdList.cancel(forwardingDetails)
 				return
 			}
 
-			log.Debug(fmt.Sprintf("new client: %s", connToForward.RemoteAddr().String()))
+			logl.Debug.Printf("new client: %s", connToForward.RemoteAddr().String())
 
 			go func() {
 				if err := forwardOneReverseConnection(serverConn, connToForward, forwardingDetails); err != nil {
-					log.Error(fmt.Sprintf("processOnePortReverseRequest(): %s", err.Error()))
+					logl.Error.Printf("processOnePortReverseRequest(): %s", err.Error())
 				}
 			}()
 		}
@@ -224,12 +225,12 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newChannel ssh.NewChannel) {
 	remoteAddr := fmt.Sprintf("%s:%d", forwardingDetails.Raddr, forwardingDetails.Rport)
 
-	log.Info(fmt.Sprintf("forwarding %s", remoteAddr))
-	defer log.Info("closing")
+	logl.Info.Printf("forwarding %s", remoteAddr)
+	defer logl.Info.Println("closing")
 
 	rconn, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
-		log.Error(err.Error())
+		logl.Error.Println(err.Error())
 		newChannel.Reject(ssh.ConnectionFailed, err.Error())
 		return
 	}
@@ -237,13 +238,18 @@ func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newCha
 
 	tcpStreamCh, reqs, err := newChannel.Accept()
 	if err != nil {
-		log.Error("channel Accept() failed")
+		logl.Error.Println("channel Accept() failed")
 		return
 	}
 
 	go ssh.DiscardRequests(reqs)
 
 	if err := bidipipe.Pipe(tcpStreamCh, "SSH tunnel", rconn, "Local connection"); err != nil {
-		log.Error(err.Error())
+		logl.Error.Println(err.Error())
 	}
+}
+
+// this is ugly design
+func SetLogger(logr *log.Logger) {
+	logl = logex.Levels(logr)
 }

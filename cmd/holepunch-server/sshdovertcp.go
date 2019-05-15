@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"github.com/function61/gokit/logger"
 	"github.com/function61/gokit/stopper"
+	"github.com/function61/gokit/tcpkeepalive"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
-	"github.com/function61/holepunch-server/pkg/tcpkeepalive"
 	"golang.org/x/crypto/ssh"
 	"net"
 )
@@ -13,11 +11,9 @@ import (
 func serveSshdOnTCP(addr string, conf *ssh.ServerConfig, stop *stopper.Stopper) {
 	defer stop.Done()
 
-	log := logger.New("sshd-over-tcp")
-
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to listen on %s (%s)", addr, err))
+		sshdOverTcpLog.Error.Printf("Failed to listen on %s (%s)", addr, err)
 		return
 	}
 
@@ -26,19 +22,19 @@ func serveSshdOnTCP(addr string, conf *ssh.ServerConfig, stop *stopper.Stopper) 
 		tcpListener.Close()
 	}()
 
-	log.Info(fmt.Sprintf("Listening on %s", addr))
+	sshdOverTcpLog.Info.Printf("Listening on %s", addr)
 
 	for {
 		tcpConn, err := tcpListener.Accept()
 		if err != nil {
-			log.Error(fmt.Sprintf("Accept() failed: %s", err))
+			sshdOverTcpLog.Error.Printf("Accept() failed: %s", err)
 			break
 		}
 
 		if err := tcpkeepalive.Enable(tcpConn.(*net.TCPConn), tcpkeepalive.DefaultDuration); err != nil {
-			log.Error(fmt.Sprintf("tcpkeepalive: %s", err.Error()))
+			sshdOverTcpLog.Error.Printf("tcpkeepalive: %s", err.Error())
 		}
 
-		go holepunchsshserver.ServeConn(tcpConn, conf)
+		go holepunchsshserver.ServeConn(tcpConn, conf, sshdServerLog)
 	}
 }

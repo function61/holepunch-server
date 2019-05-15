@@ -13,12 +13,12 @@ func TestDestinationPortFromVirtualHost(t *testing.T) {
 		destinationPort, err := destinationPortFromVirtualHost(input)
 
 		if errExpected == nil {
-			assert.True(t, err == errExpected)
+			assert.Assert(t, err == errExpected)
 		} else {
 			assert.EqualString(t, err.Error(), errExpected.Error())
 		}
 
-		assert.True(t, destinationPort == destinationPortExpected)
+		assert.Assert(t, destinationPort == destinationPortExpected)
 
 	}
 

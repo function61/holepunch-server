@@ -3,7 +3,8 @@ package reverseproxy
 import (
 	"errors"
 	"fmt"
-	"github.com/function61/gokit/logger"
+	"github.com/function61/gokit/logex"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
@@ -12,14 +13,14 @@ import (
 
 var disallowedPorts = []int{22, 80, 443, 8080}
 
-func Register(mux *http.ServeMux) {
-	log := logger.New("reverseproxy")
+func Register(mux *http.ServeMux, logger *log.Logger) {
+	logl := logex.Levels(logger)
 
 	reverseProxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			destinationPort, err := destinationPortFromVirtualHost(req.Host)
 			if err != nil {
-				log.Error(err.Error())
+				logl.Error.Println(err.Error())
 
 				// leaving Scheme unset aborts the request gracefully
 			} else {

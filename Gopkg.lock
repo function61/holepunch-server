@@ -3,18 +3,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e4bb0be7d4727d57c50997d830c6740c5c858abfd770ef129b9252ff307e77c7"
+  digest = "1:2bfd31c37272727a432fb5678d1b20158da540c154ce6e8700256338bb113f15"
   name = "github.com/function61/gokit"
   packages = [
     "assert",
     "bidipipe",
     "envvar",
-    "logger",
+    "logex",
     "ossignal",
     "stopper",
+    "tcpkeepalive",
   ]
   pruneopts = "UT"
-  revision = "5f0407aca4a979d5e907bcd1899cd1d131c93a40"
+  revision = "b30acd36f42adb55b113070ee29ce6fc06c9e861"
 
 [[projects]]
   digest = "1:7b5c6e2eeaa9ae5907c391a91c132abfd5c9e8a784a341b5625e750c67e6825d"
@@ -71,9 +72,10 @@
     "github.com/function61/gokit/assert",
     "github.com/function61/gokit/bidipipe",
     "github.com/function61/gokit/envvar",
-    "github.com/function61/gokit/logger",
+    "github.com/function61/gokit/logex",
     "github.com/function61/gokit/ossignal",
     "github.com/function61/gokit/stopper",
+    "github.com/function61/gokit/tcpkeepalive",
     "github.com/gorilla/websocket",
     "github.com/spf13/cobra",
     "golang.org/x/crypto/ssh",

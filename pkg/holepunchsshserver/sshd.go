@@ -3,27 +3,27 @@ package holepunchsshserver
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"github.com/function61/gokit/logger"
+	"github.com/function61/gokit/logex"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"net"
 )
 
-var log = logger.New("holepunchsshserver")
+func ServeConn(conn net.Conn, config *ssh.ServerConfig, logger *log.Logger) {
+	logl := logex.Levels(logger)
 
-func ServeConn(conn net.Conn, config *ssh.ServerConfig) {
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshServerConn, newChannelRequests, requests, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to handshake (%s)", err))
+		logl.Error.Printf("Failed to handshake (%s)", err)
 		return
 	}
 
-	log.Info(fmt.Sprintf("Authorized user %s from %s (%s)",
+	logl.Info.Printf("Authorized user %s from %s (%s)",
 		sshServerConn.User(),
 		sshServerConn.RemoteAddr(),
-		sshServerConn.ClientVersion()))
+		sshServerConn.ClientVersion())
 
 	// handle portforwarding out-of-band requests, but discard all other
 	// these are reverse forwards

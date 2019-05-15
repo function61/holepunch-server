@@ -66,3 +66,20 @@ But if you want truly HTTP-only traffic (so you don't have to expose extra ports
 cluster), to have the WebSockets support you must use
 [function61/holepunch-client](https://github.com/function61/holepunch-client) in its
 WebSocket mode.
+
+
+How to build & develop
+----------------------
+
+[How to build & develop](https://github.com/function61/turbobob/blob/master/docs/external-how-to-build-and-dev.md)
+(with Turbo Bob, our build tool). It's easy and simple!
+
+
+Similar software
+----------------
+
+- https://github.com/jpillora/chisel differences:
+    - SSH is used as a protocol, but port forwarding semantics are not used
+    - Everything is more bundled together. I feel holepunch-server is more composable
+    - Reverse proxying works the other way around?
+- https://github.com/alexellis/inlets

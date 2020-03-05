@@ -1,7 +1,6 @@
 package sshserverportforward
 
 import (
-	"errors"
 	"fmt"
 	"github.com/function61/gokit/bidipipe"
 	"github.com/function61/gokit/logex"
@@ -22,10 +21,6 @@ var logl = logex.Levels(logex.Discard)
 var fwdList = &forwardList{
 	reverseCancellations: map[string]chan bool{},
 }
-
-var (
-	errUnsupportedAddress = errors.New("unsupported address")
-)
 
 // returns a new channel that receives all non-portforwarding requests.
 // if you don't do anything with them call "go ssh.DiscardRequests()"

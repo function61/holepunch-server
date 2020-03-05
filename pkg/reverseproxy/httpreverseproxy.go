@@ -34,7 +34,7 @@ func Register(mux *http.ServeMux, logger *log.Logger) {
 }
 
 // 8081.punch.fn61.net => 8081
-var destinationPortRe = regexp.MustCompile("^([0-9]+)\\.")
+var destinationPortRe = regexp.MustCompile(`^([0-9]+)\.`)
 
 func destinationPortFromVirtualHost(virtualHost string) (int, error) {
 	matches := destinationPortRe.FindStringSubmatch(virtualHost)

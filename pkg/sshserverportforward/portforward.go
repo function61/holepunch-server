@@ -47,7 +47,7 @@ func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdLis
 	var forwardingDetails channelForwardMsg
 	if err := ssh.Unmarshal(req.Payload, &forwardingDetails); err != nil {
 		logl.Error.Println(err.Error())
-		req.Reply(false, nil)
+		_ = req.Reply(false, nil)
 		return
 	}
 
@@ -63,14 +63,14 @@ func processTcpipForwardReq(req *ssh.Request, serverConn *ssh.ServerConn, fwdLis
 
 		// we haven't implemented this part of the spec yet. PuTTY does not do this.
 		logl.Debug.Println("client requesting pre-emptive forward even though it's not required")
-		req.Reply(true, nil)
+		_ = req.Reply(true, nil)
 		return
 	}
 
 	cancelCh := fwdList.add(forwardingDetails)
 	if cancelCh == nil {
 		logl.Error.Println("TCP/IP reverse forward already reserved")
-		req.Reply(false, nil)
+		_ = req.Reply(false, nil)
 		return
 	}
 
@@ -86,15 +86,15 @@ func processTcpipCancelForwardReq(req *ssh.Request, fwdList *forwardList) {
 	var cancelForwardDetails channelForwardMsg
 	if err := ssh.Unmarshal(req.Payload, &cancelForwardDetails); err != nil {
 		logl.Error.Println(err.Error())
-		req.Reply(false, nil)
+		_ = req.Reply(false, nil)
 		return
 	}
 
 	if fwdList.cancel(cancelForwardDetails) {
-		req.Reply(true, nil)
+		_ = req.Reply(true, nil)
 	} else {
 		logl.Error.Println("cancel request for non-existent port")
-		req.Reply(false, nil)
+		_ = req.Reply(false, nil)
 	}
 }
 
@@ -109,7 +109,7 @@ func ProcessPortForwardNewChannelRequests(newChannelRequests <-chan ssh.NewChann
 				var forwardingDetails channelOpenDirectMsg
 				if err := ssh.Unmarshal(newChannel.ExtraData(), &forwardingDetails); err != nil {
 					logl.Error.Println(err.Error())
-					newChannel.Reject(ssh.UnknownChannelType, "payload unmarshal failed")
+					_ = newChannel.Reject(ssh.UnknownChannelType, "payload unmarshal failed")
 					continue
 				}
 
@@ -137,7 +137,7 @@ func processOnePortReverseRequest(
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		logl.Error.Println(err.Error())
-		req.Reply(false, nil)
+		_ = req.Reply(false, nil)
 		return
 	}
 	defer logl.Info.Printf("Removed reverse listener %s", listenAddr)
@@ -164,7 +164,7 @@ func processOnePortReverseRequest(
 
 	go func() {
 		// returns when SSH connection exists
-		serverConn.Wait()
+		_ = serverConn.Wait()
 
 		fwdList.cancel(forwardingDetails)
 	}()
@@ -175,7 +175,7 @@ func processOnePortReverseRequest(
 			Port uint32
 		}
 	*/
-	req.Reply(true, nil)
+	_ = req.Reply(true, nil)
 
 	// wait until reverse forward is: (all signalled via fwdList.cancel())
 	// - cancelled explicitly by the client or
@@ -226,7 +226,7 @@ func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newCha
 	rconn, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
 		logl.Error.Println(err.Error())
-		newChannel.Reject(ssh.ConnectionFailed, err.Error())
+		_ = newChannel.Reject(ssh.ConnectionFailed, err.Error())
 		return
 	}
 	defer rconn.Close()

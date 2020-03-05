@@ -10,6 +10,6 @@ import (
 // interactive sessions
 func RejectChannelRequests(channelRequests <-chan ssh.NewChannel) {
 	for channelRequest := range channelRequests {
-		channelRequest.Reject(ssh.Prohibited, fmt.Sprintf("channel type prohibited: %s", channelRequest.ChannelType()))
+		_ = channelRequest.Reject(ssh.Prohibited, fmt.Sprintf("channel type prohibited: %s", channelRequest.ChannelType()))
 	}
 }

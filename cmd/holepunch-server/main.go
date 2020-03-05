@@ -1,77 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/function61/gokit/dynversion"
 	"github.com/function61/gokit/envvar"
+	"github.com/function61/gokit/httputils"
 	"github.com/function61/gokit/logex"
 	"github.com/function61/gokit/ossignal"
-	"github.com/function61/gokit/stopper"
+	"github.com/function61/gokit/taskrunner"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"github.com/function61/holepunch-server/pkg/reverseproxy"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"net/http"
 	"os"
 )
-
-var (
-	rootLogger      = logex.StandardLogger()
-	serverLog       = logex.Levels(logex.Prefix("server", rootLogger))
-	sshdOverTcpLog  = logex.Levels(logex.Prefix("sshd-over-tcp", rootLogger))
-	sshdOverWsLog   = logex.Levels(logex.Prefix("sshd-over-websocket", rootLogger))
-	sshdServerLog   = logex.Prefix("holepunchsshserver", rootLogger)
-	reverseProxyLog = logex.Prefix("reverseproxy", rootLogger)
-)
-
-func serverEntry() *cobra.Command {
-	sshserverportforward.SetLogger(logex.Prefix("sshd-portforward", rootLogger))
-
-	sshdOverWebsocket := false
-	sshdOverTcp := ""
-	reverseProxy := false
-
-	cmd := &cobra.Command{
-		Use:   "server",
-		Short: "Start server",
-		Args:  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			defer serverLog.Info.Println("Stopped")
-
-			serverLog.Info.Printf("holepunch-server %s starting", dynversion.Version)
-
-			workers := stopper.NewManager()
-
-			if sshdOverTcp != "" {
-				go serveSshdOnTCP(sshdOverTcp, sshConfig(), workers.Stopper())
-			}
-
-			if sshdOverWebsocket {
-				RegisterSshdOverWebsocket(http.DefaultServeMux, sshConfig())
-			}
-
-			if reverseProxy {
-				reverseproxy.Register(http.DefaultServeMux, reverseProxyLog)
-			}
-
-			// only need HTTP if these services are enabled
-			if sshdOverWebsocket || reverseProxy {
-				go serveHttp(workers.Stopper())
-			}
-
-			serverLog.Info.Printf("Got %s; stopping", <-ossignal.InterruptOrTerminate())
-
-			workers.StopAllWorkersAndWait()
-		},
-	}
-
-	cmd.Flags().BoolVarP(&sshdOverWebsocket, "sshd-websocket", "", sshdOverWebsocket, "Serve holepunch-SSHD over WS")
-	cmd.Flags().StringVarP(&sshdOverTcp, "sshd-tcp", "", sshdOverTcp, "Serve holepunch-SSHD over TCP, specify e.g. 0.0.0.0:22")
-	cmd.Flags().BoolVarP(&reverseProxy, "http-reverse-proxy", "", reverseProxy, "Enable holepunch HTTP reverse proxy")
-
-	return cmd
-}
 
 func main() {
 	app := &cobra.Command{
@@ -82,42 +28,137 @@ func main() {
 
 	app.AddCommand(serverEntry())
 
-	if err := app.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	exitIfError(app.Execute())
 }
 
-func sshConfig() *ssh.ServerConfig {
-	hostPrivateKey, err := envvar.GetFromBase64Encoded("SSH_HOSTKEY")
-	if err != nil {
-		panic(err)
+func serverEntry() *cobra.Command {
+	sshdOverWebsocket := false
+	sshdOverTcp := ""
+	reverseProxy := false
+
+	cmd := &cobra.Command{
+		Use:   "server",
+		Short: "Start server",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			rootLogger := logex.StandardLogger()
+
+			exitIfError(server(
+				ossignal.InterruptOrTerminateBackgroundCtx(rootLogger),
+				sshdOverWebsocket,
+				sshdOverTcp,
+				reverseProxy,
+				rootLogger,
+			))
+		},
 	}
 
-	clientPubKey, err := envvar.Get("CLIENT_PUBKEY")
+	cmd.Flags().BoolVarP(&sshdOverWebsocket, "sshd-websocket", "", sshdOverWebsocket, "Serve holepunch-SSHD over WS")
+	cmd.Flags().StringVarP(&sshdOverTcp, "sshd-tcp", "", sshdOverTcp, "Serve holepunch-SSHD over TCP, specify e.g. 0.0.0.0:22")
+	cmd.Flags().BoolVarP(&reverseProxy, "http-reverse-proxy", "", reverseProxy, "Enable holepunch HTTP reverse proxy")
+
+	return cmd
+}
+
+func server(
+	ctx context.Context,
+	sshdOverWebsocket bool,
+	sshdOverTcp string,
+	reverseProxy bool,
+	logger *log.Logger,
+) error {
+	sshserverportforward.SetLogger(logex.Prefix("sshd-portforward", logger))
+
+	logl := logex.Levels(logger)
+
+	defer logl.Info.Println("Stopped")
+
+	tasks := taskrunner.New(ctx, logger)
+
+	logl.Info.Printf("holepunch-server %s starting", dynversion.Version)
+
+	if sshdOverTcp != "" {
+		sshConf, err := sshConfig()
+		if err != nil {
+			return err
+		}
+
+		tasks.Start("tcp-sshd", func(ctx context.Context, taskName string) error {
+			return serveSshdOnTCP(
+				ctx,
+				sshdOverTcp,
+				sshConf,
+				logex.Prefix(taskName, logger))
+		})
+	}
+
+	mux := http.NewServeMux()
+
+	if sshdOverWebsocket {
+		sshConf, err := sshConfig()
+		if err != nil {
+			return err
+		}
+
+		RegisterSshdOverWebsocket(
+			mux,
+			sshConf,
+			logex.Prefix("ws", logger))
+	}
+
+	if reverseProxy {
+		reverseproxy.Register(mux, logex.Prefix("reverseproxy", logger))
+	}
+
+	// only need HTTP if these services are enabled
+	if sshdOverWebsocket || reverseProxy {
+		tasks.Start("httpserver", func(ctx context.Context, taskName string) error {
+			return serveHttp(ctx, mux, logex.Prefix(taskName, logger))
+		})
+	}
+
+	return tasks.Wait()
+}
+
+func sshConfig() (*ssh.ServerConfig, error) {
+	hostPrivateKey, err := envvar.RequiredFromBase64Encoded("SSH_HOSTKEY")
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+
+	clientPubKey, err := envvar.Required("CLIENT_PUBKEY")
+	if err != nil {
+		return nil, err
 	}
 
 	conf, err := holepunchsshserver.DefaultConfig(hostPrivateKey, clientPubKey)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return conf
+	return conf, nil
 }
 
-func serveHttp(stop *stopper.Stopper) {
-	defer stop.Done()
-
+func serveHttp(ctx context.Context, handler http.Handler, logger *log.Logger) error {
 	srv := &http.Server{
-		Addr: ":80",
+		Addr:    ":80",
+		Handler: handler,
 	}
 
-	go func() {
-		<-stop.Signal
-		srv.Shutdown(nil)
-	}()
+	tasks := taskrunner.New(ctx, logger)
 
-	srv.ListenAndServe()
+	tasks.Start("listener "+srv.Addr, func(_ context.Context, _ string) error {
+		return httputils.RemoveGracefulServerClosedError(srv.ListenAndServe())
+	})
+
+	tasks.Start("listenershutdowner", httputils.ServerShutdownTask(srv))
+
+	return tasks.Wait()
+}
+
+func exitIfError(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

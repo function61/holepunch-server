@@ -1,40 +1,50 @@
 package main
 
 import (
-	"github.com/function61/gokit/stopper"
-	"github.com/function61/gokit/tcpkeepalive"
+	"context"
+	"github.com/function61/gokit/logex"
+	"github.com/function61/gokit/taskrunner"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"net"
 )
 
-func serveSshdOnTCP(addr string, conf *ssh.ServerConfig, stop *stopper.Stopper) {
-	defer stop.Done()
-
+func serveSshdOnTCP(
+	ctx context.Context,
+	addr string,
+	conf *ssh.ServerConfig,
+	logger *log.Logger,
+) error {
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
-		sshdOverTcpLog.Error.Printf("Failed to listen on %s (%s)", addr, err)
-		return
+		return err
 	}
 
-	go func() {
-		<-stop.Signal
-		tcpListener.Close()
-	}()
+	logex.Levels(logger).Info.Printf("Listening on %s", addr)
 
-	sshdOverTcpLog.Info.Printf("Listening on %s", addr)
+	tasks := taskrunner.New(ctx, logger)
 
-	for {
-		tcpConn, err := tcpListener.Accept()
-		if err != nil {
-			sshdOverTcpLog.Error.Printf("Accept() failed: %s", err)
-			break
+	tasks.Start("listener "+addr, func(ctx context.Context, _ string) error {
+		for {
+			tcpConn, err := tcpListener.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return nil // expected error
+				default:
+					return err // unexpected error
+				}
+			}
+
+			go holepunchsshserver.ServeConn(tcpConn, conf, logger)
 		}
+	})
 
-		if err := tcpkeepalive.Enable(tcpConn.(*net.TCPConn), tcpkeepalive.DefaultDuration); err != nil {
-			sshdOverTcpLog.Error.Printf("tcpkeepalive: %s", err.Error())
-		}
+	tasks.Start("listenercloser", func(ctx context.Context, _ string) error {
+		<-ctx.Done()
+		return tcpListener.Close()
+	})
 
-		go holepunchsshserver.ServeConn(tcpConn, conf, sshdServerLog)
-	}
+	return tasks.Wait()
 }

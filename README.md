@@ -29,7 +29,7 @@ Download suitable server binary for your architecture
 
 Generate server host key, then output it as base64:
 
-```
+```console
 $ ssh-keygen -t ecdsa -b 521 -C "my awesome private key" -f id_ecdsa
 $ cat id_ecdsa | base64 -w 0
 LS0tLS1CRUdJTi...
@@ -44,7 +44,7 @@ The content of that variable you can find from file `id_ecdsa.pub` for the clien
 
 Now set up ENV vars and start `holepunch-server`:
 
-```
+```console
 export SSH_HOSTKEY="..."
 export CLIENT_PUBKEY="..."
 $ ./holepunch-server server --sshd-websocket --http-reverse-proxy --sshd-tcp 0.0.0.0:22

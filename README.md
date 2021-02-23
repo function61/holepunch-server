@@ -5,6 +5,9 @@
 holepunch-server
 ================
 
+UPDATE: You might be best served by mesh VPN like Tailscale (or WireGuard), they can even expose subnets.
+
+
 Don't you just hate when you want to connect an IoT device behind a mobile connection
 to the internet, and you notice you are behind a
 [carrier-grade NAT](https://en.wikipedia.org/wiki/Carrier-grade_NAT), and the ISP tries to

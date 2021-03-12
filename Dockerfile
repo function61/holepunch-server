@@ -13,4 +13,4 @@ RUN apk add --update openssh
 
 CMD ["holepunch-server", "server", "--http-reverse-proxy", "--sshd-websocket"]
 
-COPY "rel/function53_linux-$TARGETARCH" /usr/bin/function53
+COPY "rel/holepunch-server_linux-$TARGETARCH" /usr/bin/function53

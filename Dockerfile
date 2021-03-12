@@ -1,4 +1,4 @@
-FROM alpine:3.11.3
+FROM alpine:latest
 
 # add SSH client
 RUN apk add --update openssh

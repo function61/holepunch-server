@@ -1,3 +1,5 @@
+// an adapter for representing WebSocket connection as a net.Conn
+// some caveats apply: https://github.com/gorilla/websocket/issues/441
 package wsconnadapter
 
 import (
@@ -9,9 +11,6 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-
-// an adapter for representing WebSocket connection as a net.Conn
-// some caveats apply: https://github.com/gorilla/websocket/issues/441
 
 type Adapter struct {
 	conn       *websocket.Conn

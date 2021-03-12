@@ -32,6 +32,7 @@
 		{
 			"image": "fn61/holepunch-server",
 			"dockerfile_path": "Dockerfile",
+			"platforms": ["linux/amd64", "linux/arm/v7"],
 			"auth_type": "creds_from_env"
 		}
 	],

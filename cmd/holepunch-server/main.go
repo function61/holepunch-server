@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/function61/gokit/dynversion"
 	"github.com/function61/gokit/envvar"
 	"github.com/function61/gokit/httputils"
@@ -14,9 +18,6 @@ import (
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"net/http"
-	"os"
 )
 
 func main() {

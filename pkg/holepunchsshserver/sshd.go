@@ -3,11 +3,12 @@ package holepunchsshserver
 import (
 	"bytes"
 	"errors"
+	"log"
+	"net"
+
 	"github.com/function61/gokit/logex"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"net"
 )
 
 func ServeConn(conn net.Conn, config *ssh.ServerConfig, logger *log.Logger) {

@@ -3,12 +3,13 @@ package reverseproxy
 import (
 	"errors"
 	"fmt"
-	"github.com/function61/gokit/logex"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
 	"strconv"
+
+	"github.com/function61/gokit/logex"
 )
 
 var disallowedPorts = []int{22, 80, 443, 8080}

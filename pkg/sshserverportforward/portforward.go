@@ -2,12 +2,13 @@ package sshserverportforward
 
 import (
 	"fmt"
-	"github.com/function61/gokit/bidipipe"
-	"github.com/function61/gokit/logex"
-	"golang.org/x/crypto/ssh"
 	"log"
 	"net"
 	"strconv"
+
+	"github.com/function61/gokit/bidipipe"
+	"github.com/function61/gokit/logex"
+	"golang.org/x/crypto/ssh"
 )
 
 // Go's (as of version 1.11) SSH implements port forwarding for client side only. this

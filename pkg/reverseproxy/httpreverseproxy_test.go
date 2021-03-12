@@ -2,8 +2,9 @@ package reverseproxy
 
 import (
 	"errors"
-	"github.com/function61/gokit/assert"
 	"testing"
+
+	"github.com/function61/gokit/assert"
 )
 
 func TestDestinationPortFromVirtualHost(t *testing.T) {

@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"log"
+	"net"
+
 	"github.com/function61/gokit/logex"
 	"github.com/function61/gokit/taskrunner"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"net"
 )
 
 func serveSshdOnTCP(

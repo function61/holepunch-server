@@ -1,16 +1,17 @@
 package main
 
 import (
+	"log"
+	"net"
+	"net/http"
+	"strings"
+
 	"github.com/function61/gokit/logex"
 	"github.com/function61/gokit/tcpkeepalive"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"github.com/function61/holepunch-server/pkg/wsconnadapter"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
-	"log"
-	"net"
-	"net/http"
-	"strings"
 )
 
 var websocketUpgrader = websocket.Upgrader{

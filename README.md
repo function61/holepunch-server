@@ -75,6 +75,9 @@ cluster), to have the WebSockets support you must use
 [function61/holepunch-client](https://github.com/function61/holepunch-client) in its
 WebSocket mode.
 
+By default this server requires your client to use SSH username `hp`, but you can override that with
+`HP_SSH_USERNAME` ENV variable.
+
 
 How to build & develop
 ----------------------

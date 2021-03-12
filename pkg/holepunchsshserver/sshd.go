@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"os"
 
 	"github.com/function61/gokit/log/logex"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
@@ -53,7 +54,7 @@ func DefaultConfig(hostPrivateKeyBytes []byte, clientPubKey string) (*ssh.Server
 
 func keyAuthorizer(expectedClientKeyAuthorizedFormat string) func(ssh.ConnMetadata, ssh.PublicKey) (*ssh.Permissions, error) {
 	return func(metadata ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-		if metadata.User() != "hp" {
+		if metadata.User() != coalesce(os.Getenv("HP_SSH_USERNAME"), "hp") {
 			return nil, errors.New("unknown username")
 		}
 
@@ -72,4 +73,14 @@ func keyAuthorizer(expectedClientKeyAuthorizedFormat string) func(ssh.ConnMetada
 
 func publicKeysEqual(key1 ssh.PublicKey, key2 ssh.PublicKey) bool {
 	return bytes.Equal(key1.Marshal(), key2.Marshal())
+}
+
+func coalesce(items ...string) string {
+	for _, item := range items {
+		if item != "" {
+			return item
+		}
+	}
+
+	return ""
 }

@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/function61/gokit/logex"
+	"github.com/function61/gokit/log/logex"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
 	"golang.org/x/crypto/ssh"
 )

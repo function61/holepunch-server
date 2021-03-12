@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/function61/gokit/logex"
-	"github.com/function61/gokit/taskrunner"
+	"github.com/function61/gokit/log/logex"
+	"github.com/function61/gokit/sync/taskrunner"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"golang.org/x/crypto/ssh"
 )
@@ -26,7 +26,7 @@ func serveSshdOnTCP(
 
 	tasks := taskrunner.New(ctx, logger)
 
-	tasks.Start("listener "+addr, func(ctx context.Context, _ string) error {
+	tasks.Start("listener "+addr, func(ctx context.Context) error {
 		for {
 			tcpConn, err := tcpListener.Accept()
 			if err != nil {
@@ -42,7 +42,7 @@ func serveSshdOnTCP(
 		}
 	})
 
-	tasks.Start("listenercloser", func(ctx context.Context, _ string) error {
+	tasks.Start("listenercloser", func(ctx context.Context) error {
 		<-ctx.Done()
 		return tcpListener.Close()
 	})

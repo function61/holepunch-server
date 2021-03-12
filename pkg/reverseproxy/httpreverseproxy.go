@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/function61/gokit/logex"
+	"github.com/function61/gokit/log/logex"
 )
 
 var disallowedPorts = []int{22, 80, 443, 8080}

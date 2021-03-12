@@ -6,8 +6,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/function61/gokit/bidipipe"
-	"github.com/function61/gokit/logex"
+	"github.com/function61/gokit/io/bidipipe"
+	"github.com/function61/gokit/log/logex"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -215,7 +215,9 @@ func forwardOneReverseConnection(sshServerConn *ssh.ServerConn, connToForward ne
 	// we're not expecting any requests for this channel
 	go ssh.DiscardRequests(reqs)
 
-	return bidipipe.Pipe(tcpStreamCh, "SSH tunnel", connToForward, "Local connection")
+	return bidipipe.Pipe(
+		bidipipe.WithName("SSH tunnel", tcpStreamCh),
+		bidipipe.WithName("Local connection", connToForward))
 }
 
 func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newChannel ssh.NewChannel) {
@@ -240,7 +242,10 @@ func processOnePortForwardRequest(forwardingDetails channelOpenDirectMsg, newCha
 
 	go ssh.DiscardRequests(reqs)
 
-	if err := bidipipe.Pipe(tcpStreamCh, "SSH tunnel", rconn, "Local connection"); err != nil {
+	if err := bidipipe.Pipe(bidipipe.WithName(
+		"SSH tunnel", tcpStreamCh),
+		bidipipe.WithName("Local connection", rconn),
+	); err != nil {
 		logl.Error.Println(err.Error())
 	}
 }

@@ -2,17 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/function61/gokit/dynversion"
-	"github.com/function61/gokit/envvar"
-	"github.com/function61/gokit/httputils"
-	"github.com/function61/gokit/logex"
-	"github.com/function61/gokit/ossignal"
-	"github.com/function61/gokit/taskrunner"
+	"github.com/function61/gokit/app/dynversion"
+	"github.com/function61/gokit/log/logex"
+	"github.com/function61/gokit/net/http/httputils"
+	"github.com/function61/gokit/os/osutil"
+	"github.com/function61/gokit/sync/taskrunner"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"github.com/function61/holepunch-server/pkg/reverseproxy"
 	"github.com/function61/holepunch-server/pkg/sshserverportforward"
@@ -29,7 +27,7 @@ func main() {
 
 	app.AddCommand(serverEntry())
 
-	exitIfError(app.Execute())
+	osutil.ExitIfError(app.Execute())
 }
 
 func serverEntry() *cobra.Command {
@@ -44,8 +42,8 @@ func serverEntry() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			rootLogger := logex.StandardLogger()
 
-			exitIfError(server(
-				ossignal.InterruptOrTerminateBackgroundCtx(rootLogger),
+			osutil.ExitIfError(server(
+				osutil.CancelOnInterruptOrTerminate(rootLogger),
 				sshdOverWebsocket,
 				sshdOverTcp,
 				reverseProxy,
@@ -84,12 +82,12 @@ func server(
 			return err
 		}
 
-		tasks.Start("tcp-sshd", func(ctx context.Context, taskName string) error {
+		tasks.Start("tcp-sshd", func(ctx context.Context) error {
 			return serveSshdOnTCP(
 				ctx,
 				sshdOverTcp,
 				sshConf,
-				logex.Prefix(taskName, logger))
+				logex.Prefix("tcp-sshd", logger))
 		})
 	}
 
@@ -113,8 +111,8 @@ func server(
 
 	// only need HTTP if these services are enabled
 	if sshdOverWebsocket || reverseProxy {
-		tasks.Start("httpserver", func(ctx context.Context, taskName string) error {
-			return serveHttp(ctx, mux, logex.Prefix(taskName, logger))
+		tasks.Start("httpserver", func(ctx context.Context) error {
+			return serveHttp(ctx, mux, logex.Prefix("httpserver", logger))
 		})
 	}
 
@@ -122,12 +120,12 @@ func server(
 }
 
 func sshConfig() (*ssh.ServerConfig, error) {
-	hostPrivateKey, err := envvar.RequiredFromBase64Encoded("SSH_HOSTKEY")
+	hostPrivateKey, err := osutil.GetenvRequiredFromBase64("SSH_HOSTKEY")
 	if err != nil {
 		return nil, err
 	}
 
-	clientPubKey, err := envvar.Required("CLIENT_PUBKEY")
+	clientPubKey, err := osutil.GetenvRequired("CLIENT_PUBKEY")
 	if err != nil {
 		return nil, err
 	}
@@ -146,20 +144,5 @@ func serveHttp(ctx context.Context, handler http.Handler, logger *log.Logger) er
 		Handler: handler,
 	}
 
-	tasks := taskrunner.New(ctx, logger)
-
-	tasks.Start("listener "+srv.Addr, func(_ context.Context, _ string) error {
-		return httputils.RemoveGracefulServerClosedError(srv.ListenAndServe())
-	})
-
-	tasks.Start("listenershutdowner", httputils.ServerShutdownTask(srv))
-
-	return tasks.Wait()
-}
-
-func exitIfError(err error) {
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return httputils.CancelableServer(ctx, srv, func() error { return srv.ListenAndServe() })
 }

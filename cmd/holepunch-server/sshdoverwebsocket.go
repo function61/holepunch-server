@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/function61/gokit/logex"
+	"github.com/function61/gokit/log/logex"
 	"github.com/function61/holepunch-server/pkg/holepunchsshserver"
 	"github.com/function61/holepunch-server/pkg/wsconnadapter"
 	"github.com/gorilla/websocket"
